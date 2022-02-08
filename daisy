@@ -17,8 +17,14 @@ Description:
     the -g flag of this command is really what motivated this project.
     
 Installation:
-    drop this file into your path.  It has no library dependencies beyond base python3
+    drop this file into your path.  It has no library dependencies beyond base python3.  One way is the command:
+    curl https://raw.githubusercontent.com/NGeorgescu/daisy/master/daisy > ~/.local/bin/daisy && chmod +x ~/.local/bin/daisy
     
+    and make sure .local/bin is in your path, e.g. in your .bashrc:
+    PATH="$HOME/.local/bin:$PATH"
+
+    (or wherever you want it)
+
 Example commands:
     daisy -g top   #this GETS the top installation candidates for the name top
     daisy top      #daisy X is the same as daisy -g X
