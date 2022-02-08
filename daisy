@@ -1,0 +1,156 @@
+#! /usr/bin/python3
+
+"""
+Name: this [D]pkg [A]utomatic [I]nstaller is the [S]implest [Y]et
+Author: Nicholas S Georgescu
+URL: github.com/ngeorgescu/daisy
+License: GNU GPL3
+
+Description:
+    After using archlinux/yay it has totally ruined me and I don't have the
+    patience for typing out 'sudo apt-get install' commands... so instead
+    I made this tool.  Also, it's annoying, once you get the search results, 
+    to have to type in each of the install objects, especially when you're 
+    searching for the debian/ubuntu equivalent for an archlinux package or for 
+    the package that manages a specific command. Life was hard. It was no way 
+    to live.  Now that's all just handled by daisy.  It should be noted that 
+    the -g flag of this command is really what motivated this project.
+    
+Installation:
+    drop this file into your path.  It has no library dependencies beyond base python3
+    
+Example commands:
+    daisy -g top   #this GETS the top installation candidates for the name top
+    daisy -i atop  #this installs atop
+    daisy -s htop  #this searches for all the packages with 'htop' in them
+    daisy          #and just like yay, if you just run daisy, it will fully update+upgrade everything
+    
+    
+"""
+
+import argparse
+import re
+import subprocess         
+import sys
+import os
+from subprocess import Popen, PIPE
+import threading
+import pathlib
+from select import select
+
+log_location = '~/.daisy.log'
+
+
+
+class LocalShell(object):
+    def __init__(self):
+        pass
+    
+    def run(self,command):
+        self.command = command
+        env = os.environ.copy()
+        self._log(command)
+        p = Popen(self.command, stdin=PIPE, stdout=PIPE, stderr=subprocess.STDOUT, shell=True, env=env)
+
+        def writeall(p):
+            while True:
+                # print("read data: ")
+                data = p.stdout.read(1).decode("utf-8")
+                if not data:
+                    break
+                sys.stdout.write(data)
+                sys.stdout.flush()
+        writer = threading.Thread(target=writeall, args=(p,))
+        writer.start()
+
+        try:
+            while True:
+                di = None
+                while not di:
+                    if p.poll() is None: #alive
+                        di, _, _ = select([sys.stdin], [], [], .1)
+                    else:
+                        di = None
+                        break
+                d = '\n' if di is None else sys.stdin.read(1)
+                if not d: break
+                self._write(p, d.encode())
+        except EOFError: pass
+        except BrokenPipeError: pass
+
+    def _write(self, process, message):
+        process.stdin.write(message)
+        process.stdin.flush()
+        
+    def _log(self,command):
+        with open(log_location.replace('~',str(pathlib.Path.home())),'a') as f:
+            f.write(command)
+            f.write('\n')
+            
+def run_cmd(fn,args):
+    cmd = ['apt-cache' if fn in 'sq' else 'sudo apt-get']
+    cmd.append({'s':'search','q':'show','i':'install','r':'remove','p':'purge','d':'download',
+                'u':'update && sudo apt-get dist-upgrade','j':'update','a':'autoremove' }[fn])
+    if args:
+        if fn in 'uj': cmd.append(f'&& sudo apt-get install {args}' )
+        else:  cmd.append(f'{args}')
+    LocalShell().run(' '.join(cmd))
+
+def l(): 
+    print('\n'.join(sorted(subprocess.getoutput('apt-cache pkgnames').split('\n'))))
+
+def g(args):
+    results = subprocess.getoutput(f'apt-cache search {args}').split('\n')
+    if len(results)>1:
+        output = '\n'.join([f'{i}) {j}' for i,j in enumerate(results)])
+        print(output)
+        choice = ''
+        while not len(choice):
+            choice = str(input('Enter the package numbers to install or [enter] for help: '))
+            if not len(choice):
+                print('  - enter numbers separated by anything else, with dashes for ranges, e.g. 1 3 6 10-12\n')
+        try:
+            choices = set([k for j in [map(int,re.findall(r'\d+',choice))]+[list(range(*map(int,re.findall('\d+',i)))) for
+                      i in re.findall(r'\d+ *- *\d+',choice)] for k in j])
+        except Exception:
+            print('invalid choice')
+        else:
+            d_res = dict(list(map(list,enumerate(results))))
+            packages = ' '.join([d_res[i].split(' - ')[0] for i in choices])
+            if packages: 
+                LocalShell().run(f'sudo apt-get install {packages}' )
+            else: 
+                print('No packages entered')
+    else: print('No search results')
+    
+    
+flag_k = ['get installation from search',
+ 'search',
+ 'install',
+ 'remove',
+ 'query package details',
+ 'purge',
+ "download (but don't install)",
+ 'update and upgrade (optionally: install package)',
+ 'just Update (optionally: install package)',
+ 'autoremove unnecessary packages',
+ 'list installed'
+]
+
+
+parser = argparse.ArgumentParser()
+cmd = lambda command: command[0].lower() #{}.get(command,command[0].lower())
+group = parser.add_mutually_exclusive_group()
+[group.add_argument(f'-{cmd(i)}',  help=i, action="store_true") if cmd(i) in 'al' else
+ group.add_argument(f'-{cmd(i)}', type=str,  nargs='*' if cmd(i) in 'uj' else '+', help=i, default=None) for i in flag_k]
+kwargs = parser.parse_args()._get_kwargs()
+arg_val =  [[i,' '.join(j) if type(j)==list else None] for i,j in kwargs if j is not None and j is not False]
+
+if arg_val: fn, args = arg_val[0]
+else: fn, args = ['u', None]
+
+if fn=='l':l()
+elif fn=='g': g(args)
+else:run_cmd(fn,args)
+
+
