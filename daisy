@@ -138,16 +138,16 @@ flag_k = ['get installation from search',
 ]
 
 
+
 parser = argparse.ArgumentParser()
-cmd = lambda command: command[0].lower() #{}.get(command,command[0].lower())
+cmd = lambda command: command[0].lower()
 group = parser.add_mutually_exclusive_group()
+parser.add_argument('g_argument', help=flag_k[0], nargs='*',type=str,default=None)
 [group.add_argument(f'-{cmd(i)}',  help=i, action="store_true") if cmd(i) in 'al' else
  group.add_argument(f'-{cmd(i)}', type=str,  nargs='*' if cmd(i) in 'uj' else '+', help=i, default=None) for i in flag_k]
 kwargs = parser.parse_args()._get_kwargs()
-arg_val =  [[i,' '.join(j) if type(j)==list else None] for i,j in kwargs if j is not None and j is not False]
-
-if arg_val: fn, args = arg_val[0]
-else: fn, args = ['u', None]
+arg_val =  [[i[0],' '.join(j) if type(j)==list else None] for i,j in kwargs if bool(j)]
+fn, args = arg_val[0] if arg_val else ['u', None]
 
 if fn=='l':l()
 elif fn=='g': g(args)
