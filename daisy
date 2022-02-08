@@ -21,11 +21,13 @@ Installation:
     
 Example commands:
     daisy -g top   #this GETS the top installation candidates for the name top
+    daisy top      #daisy X is the same as daisy -g X
     daisy -i atop  #this installs atop
-    daisy -s htop  #this searches for all the packages with 'htop' in them
-    daisy          #and just like yay, if you just run daisy, it will fully update+upgrade everything
-    
-    
+    daisy -s htop  #this searches for packages with 'htop' in them
+    daisy          #and just like yay, if you just run 'daisy', it will fully update+upgrade everything
+    daisy --help   #prints help
+
+
 """
 
 import argparse
